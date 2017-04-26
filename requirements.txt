@@ -1,0 +1,3 @@
+humanfriendly
+lxml
+oauth2client
