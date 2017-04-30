@@ -135,7 +135,18 @@ text-align:right;
 	<td class="nobr"><xsl:value-of select="@from"/></td>
 	<td class="nobr"><xsl:value-of select="@to"/></td>
 	<td align="right"><xsl:value-of select="format-number((@minutes div 60), '0.00')"/></td>
-	<td><xsl:value-of select="@subject"/></td>
+	<td>
+        <xsl:choose>
+            <xsl:when test="@link">
+                <a>
+                    <xsl:attribute name="href"><xsl:value-of select="@link"/></xsl:attribute>
+                    <xsl:attribute name="target">calendar</xsl:attribute>
+                    <xsl:value-of select="@subject"/>
+                </a>
+            </xsl:when>
+            <xsl:otherwise><xsl:value-of select="@subject"/></xsl:otherwise>
+        </xsl:choose>
+	</td>
 </tr>
 <xsl:if test="details">
 <tr valign="top">
