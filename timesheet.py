@@ -54,7 +54,8 @@ def _open_browser(e, msg):
 
 
 class CalendarEntry:
-    def __init__(self, entry_id, start, end, summary, description, location):
+    def __init__(self, entry_id, start, end, summary, description, location,
+                 link):
         def to_datetime(s):
             global date_time_re
             inp = s["dateTime"]
@@ -73,6 +74,7 @@ class CalendarEntry:
         self.summary = summary
         self.description = description
         self.location = location
+        self.link = link
 
 
 class Project:
@@ -218,7 +220,8 @@ class TimeSheet:
                                     entry["end"],
                                     summary,
                                     opt_arg("description"),
-                                    opt_arg("location")), key, entry
+                                    opt_arg("location"),
+                                    entry["htmlLink"]), key, entry
 
             page_token = event_list.get('nextPageToken')
             if not page_token:
@@ -239,6 +242,8 @@ class TimeSheet:
                             help='The name of the calendar to search.')
         parser.add_argument('--database', default='projects.sqlite',
                             help='The project database.')
+        parser.add_argument('--link', action='store_true',
+                            help='Make description a hyperlink.')
         parser.add_argument('--xslt', default='CreateReport.xslt',
                             help='The style sheet to use.')
         return parser
@@ -270,6 +275,8 @@ class TimeSheet:
                             "to": e.end.strftime(TIME_FORMAT),
                             "minutes": str((e.end - e.start).seconds // 60),
                             "subject": e.summary})
+                if self.arguments.link:
+                    entry.attrib["link"] = e.link
                 if len(e.description) > 0:
                     etree.SubElement(entry, "details").text = e.description
 
