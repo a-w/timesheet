@@ -206,6 +206,9 @@ class TimeSheet:
                     except KeyError:
                         return ""
 
+                if entry['status'] != 'confirmed':
+                    continue
+
                 project = entry_re.fullmatch(entry["summary"])
                 if project is None:
                     summary = entry["summary"]
