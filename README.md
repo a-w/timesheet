@@ -35,7 +35,7 @@ Result is cached in a file named calendar_credentials.dat
 
 The application will process the calendar named by the `--calendar` command line parameter, which defaults to `Log`.
 By default, the last month (i.e. the full month before the current one) will be processed.
-A different time span can be specified with `--start-date` and `--end-date`. The latter defaults to end of today.
+A different time span can be specified with `--start-date` and `--end-date`, where `start-date <= matching date < end-data` (`end-date` is non-inclusive). The latter defaults to end of today.
 
 The application will assume that all calendar entries in the given calendar look like
 
