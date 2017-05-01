@@ -294,7 +294,7 @@ class TimeSheet:
             if key is None:
                 error_callback(entry,
                                "Malformed timesheet entry: %s" %
-                               entry.summary)
+                               entry['summary'])
                 key = "unknown"
             else:
                 try:
