@@ -127,7 +127,7 @@ class TimeSheet:
         # user info
         self.user = None
         self.title = None
-        with open("user.json", 'r') as fp:
+        with open("user.json", 'r', encoding='utf-8') as fp:
             user_data = json.load(fp)
             self.user = user_data["user"]
             self.title = user_data["title"]
