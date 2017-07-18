@@ -25,6 +25,8 @@ import sqlite3
 import sys
 import tempfile
 import webbrowser
+
+from collections import defaultdict
 from lxml import etree
 
 from oauth2client import client
@@ -41,8 +43,14 @@ date_time_re = re.compile(
     '(?P<S>6[0-1]|[0-5]\\d|\\d)'
     '(?P<z>[+-]\\d\\d:[0-5]\\d)')
 
+date_re = re.compile(
+    '(?P<Y>\\d\\d\\d\\d)-'
+    '(?P<m>1[0-2]|0[1-9]|[1-9])-'
+    '(?P<d>3[0-1]|[1-2]\\d|0[1-9])')
+
 entry_re = re.compile('\[(?P<p>[a-z0-9 _-]*)\](?P<d>.*)',
                       re.IGNORECASE)
+
 
 DATE_FORMAT = "%d.%m.%Y"
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
@@ -62,13 +70,19 @@ class CalendarEntry:
                  link):
         def to_datetime(s):
             global date_time_re
-            inp = s["dateTime"]
-            found = date_time_re.fullmatch(inp)
+            global date_re
+            try:
+                inp = s["dateTime"]
+                found = date_time_re.fullmatch(inp)
+            except KeyError:
+                inp = s["date"]
+                found = date_re.fullmatch(inp)
+
             if not found:
                 raise ValueError("time data %r does not match expected format"
                                  % inp)
 
-            d = found.groupdict()
+            d = defaultdict(int, found.groupdict())
             return datetime(int(d["Y"]), int(d["m"]), int(d["d"]),
                             int(d["H"]), int(d["M"]))
 
