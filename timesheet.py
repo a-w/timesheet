@@ -48,8 +48,12 @@ DATE_FORMAT = "%d.%m.%Y"
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
 
 
-def _open_browser(e, msg):
+def _print_msg(e, msg):
     print(msg, end='\n')
+
+
+def _open_browser(e, msg):
+    _print_msg(e, msg)
     webbrowser.open(e["htmlLink"], new=2)
 
 
@@ -247,6 +251,8 @@ class TimeSheet:
                             help='The project database.')
         parser.add_argument('--link', action='store_true',
                             help='Make description a hyperlink.')
+        parser.add_argument('--link-error', action='store_true',
+                            help="Make errors a hyperlink, don't open entry.")
         parser.add_argument('--xslt', default='CreateReport.xslt',
                             help='The style sheet to use.')
         return parser
@@ -278,7 +284,9 @@ class TimeSheet:
                             "to": e.end.strftime(TIME_FORMAT),
                             "minutes": str((e.end - e.start).seconds // 60),
                             "subject": e.summary})
-                if self.arguments.link:
+                if self.arguments.link \
+                    or self.arguments.link_error \
+                        and p.project.key == "unknown":
                     entry.attrib["link"] = e.link
                 if len(e.description) > 0:
                     etree.SubElement(entry, "details").text = e.description
@@ -326,8 +334,11 @@ class TimeSheet:
     def main(self):
         calendar_id = self.get_calendar(self.arguments.calendar)
         if calendar_id is not None:
+            error_cb = _print_msg if self.arguments.link \
+                                     or self.arguments.link_error \
+                                     else _open_browser
             xml = self.export_as_xml(
-                self.read_calendar(calendar_id, _open_browser))
+                self.read_calendar(calendar_id, error_cb))
 
             html_file = TimeSheet.transform_to_html(
                 self.arguments.xslt, xml, "atb_%s_%s.html" % (
