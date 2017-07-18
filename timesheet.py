@@ -156,6 +156,8 @@ class TimeSheet:
                 self.end_date = self.start_date
                 self.start_date = (self.end_date - timedelta(days=1)).replace(
                     day=1)
+            elif self.arguments.period == "current-month":
+                pass
             else:
                 raise ValueError("Unknown period: %s" % self.arguments.period)
             if self.arguments.start_date is not None or \
