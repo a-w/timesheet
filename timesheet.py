@@ -226,6 +226,11 @@ class TimeSheet:
                         return ""
 
                 if entry['status'] != 'confirmed':
+                    print(
+                        "WARNING: Ignoring entry  %s (%s %s) with status %s" %
+                        (entry["start"], entry["summary"],
+                         entry["description"],
+                         entry['status']), file=sys.stderr, end='\n')
                     continue
 
                 text = entry["summary"]
