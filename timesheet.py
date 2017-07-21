@@ -32,6 +32,8 @@ from lxml import etree
 from oauth2client import client
 from helpers import init
 
+import matcher
+
 __author__ = "Adrian Weiler <timesheet-author.SPAM@aweiler.com>"
 
 date_time_re = re.compile(
@@ -47,9 +49,6 @@ date_re = re.compile(
     '(?P<Y>\\d\\d\\d\\d)-'
     '(?P<m>1[0-2]|0[1-9]|[1-9])-'
     '(?P<d>3[0-1]|[1-2]\\d|0[1-9])')
-
-entry_re = re.compile('\[(?P<p>[a-z0-9 _-]*)\](?P<d>.*)',
-                      re.IGNORECASE)
 
 
 DATE_FORMAT = "%d.%m.%Y"
@@ -229,14 +228,11 @@ class TimeSheet:
                 if entry['status'] != 'confirmed':
                     continue
 
-                project = entry_re.fullmatch(entry["summary"])
-                if project is None:
-                    summary = entry["summary"]
-                    key = None
-                else:
-                    d = project.groupdict()
-                    summary = d["d"]
-                    key = d["p"]
+                text = entry["summary"]
+                for match in matcher.MATCHERS:
+                    summary, key = match(text)
+                    if key is not None:
+                        break
 
                 yield CalendarEntry(entry["iCalUID"],
                                     entry["start"],
