@@ -303,7 +303,7 @@ class TimeSheet:
                             "subject": e.summary})
                 if self.arguments.link \
                     or self.arguments.link_error \
-                        and p.project.key == "unknown":
+                        and p.project.pid == 0:
                     entry.attrib["link"] = e.link
                 if len(e.description) > 0:
                     etree.SubElement(entry, "details").text = e.description
