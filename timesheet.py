@@ -16,8 +16,6 @@
 
 """Time sheet evaluator that uses the Google Calendar API."""
 
-from datetime import datetime, date, timedelta
-import humanfriendly
 import json
 import os.path
 import re
@@ -25,18 +23,19 @@ import sqlite3
 import sys
 import tempfile
 import webbrowser
-
 from collections import defaultdict
-from lxml import etree
+from datetime import datetime, date, timedelta
 
+import humanfriendly
+from lxml import etree
 from oauth2client import client
-from helpers import init
 
 import matcher
+from helpers import init
 
 __author__ = "Adrian Weiler <timesheet-author.SPAM@aweiler.com>"
 
-date_time_re = re.compile(
+DATE_TIME_RE = re.compile(
     '(?P<Y>\\d\\d\\d\\d)-'
     '(?P<m>1[0-2]|0[1-9]|[1-9])-'
     '(?P<d>3[0-1]|[1-2]\\d|0[1-9])T'
@@ -45,47 +44,48 @@ date_time_re = re.compile(
     '(?P<S>6[0-1]|[0-5]\\d|\\d)'
     '(?P<z>[+-]\\d\\d:[0-5]\\d)')
 
-date_re = re.compile(
+DATE_RE = re.compile(
     '(?P<Y>\\d\\d\\d\\d)-'
     '(?P<m>1[0-2]|0[1-9]|[1-9])-'
     '(?P<d>3[0-1]|[1-2]\\d|0[1-9])')
-
 
 DATE_FORMAT = "%d.%m.%Y"
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
 
 
-def _print_msg(e, msg):
-    print(msg, end='\n')
+def _print_msg(entry, msg):
+    print("%s in entry at %s" % (msg, entry["start"]), end='\n')
 
 
-def _open_browser(e, msg):
-    _print_msg(e, msg)
-    webbrowser.open(e["htmlLink"], new=2)
+def _open_browser(entry, msg):
+    _print_msg(entry, msg)
+    webbrowser.open(entry["htmlLink"], new=2)
 
 
 class CalendarEntry:
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, entry_id, start, end, summary, description, location,
                  link):
-        def to_datetime(s):
-            global date_time_re
-            global date_re
+        # pylint: disable=too-many-arguments
+
+        def to_datetime(entry):
             try:
-                inp = s["dateTime"]
-                found = date_time_re.fullmatch(inp)
+                inp = entry["dateTime"]
+                found = DATE_TIME_RE.fullmatch(inp)
             except KeyError:
-                inp = s["date"]
-                found = date_re.fullmatch(inp)
+                inp = entry["date"]
+                found = DATE_RE.fullmatch(inp)
 
             if not found:
                 raise ValueError("time data %r does not match expected format"
                                  % inp)
 
-            d = defaultdict(int, found.groupdict())
-            return datetime(int(d["Y"]), int(d["m"]), int(d["d"]),
-                            int(d["H"]), int(d["M"]))
+            _ = defaultdict(int, found.groupdict())
+            return datetime(int(_["Y"]), int(_["m"]), int(_["d"]),
+                            int(_["H"]), int(_["M"]))
 
-        self.id = entry_id
+        self.entry_id = entry_id
         self.start = to_datetime(start)
         self.end = to_datetime(end)
         self.summary = summary
@@ -95,6 +95,8 @@ class CalendarEntry:
 
 
 class Project:
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, pid, key, title):
         self.pid = pid
         self.key = key
@@ -103,34 +105,38 @@ class Project:
 
 
 class UsedProject:
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, project):
         self.project = project
         self.entries = []
 
 
 class CalendarDb:
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, name):
         self.conn = sqlite3.connect(name)
 
     def get_projects(self):
-        c = self.conn.cursor()
-        p = None
+        cursor = self.conn.cursor()
+        project = None
         # noinspection SqlResolve
-        projects = c.execute("SELECT p.Id, p.ProjectKey, p.ProjectTitle, "
+        projects = cursor.execute("SELECT p.Id, p.ProjectKey, p.ProjectTitle, "
                              "kvp.Key, kvp.value "
                              "FROM Projects p "
                              "LEFT JOIN ProjectKeyValuePairs kvp "
                              "ON p.Id = kvp.ProjectID "
                              "ORDER BY p.ProjectKey")
         for pid, project_key, title, kvk, kvv in projects:
-            if p is None or p.pid != pid:
-                if p is not None:
-                    yield p
-                p = Project(pid, project_key, title)
+            if project is None or project.pid != pid:
+                if project is not None:
+                    yield project
+                project = Project(pid, project_key, title)
             if kvk is not None:
-                p.kvp[kvk] = kvv
-        if p is not None:
-            yield p
+                project.kvp[kvk] = kvv
+        if project is not None:
+            yield project
 
 
 class TimeSheet:
@@ -142,18 +148,14 @@ class TimeSheet:
             scope='https://www.googleapis.com/auth/calendar.readonly')
 
         # user info
-        self.user = None
-        self.title = None
-        with open("user.json", 'r', encoding='utf-8') as fp:
-            user_data = json.load(fp)
-            self.user = user_data["user"]
-            self.title = user_data["title"]
+        with open("user.json", 'r', encoding='utf-8') as _:
+            self.user_data = json.load(_)
 
         # projects database
-        self.db = CalendarDb(self.arguments.database)
+        self.database = CalendarDb(self.arguments.database)
         self.projects = dict()
-        for p in self.db.get_projects():
-            self.projects[p.key] = p
+        for project in self.database.get_projects():
+            self.projects[project.key] = project
 
         # start and end date
         if self.arguments.start_date is None and \
@@ -179,13 +181,15 @@ class TimeSheet:
                     "You cannot combine --period and explicit date")
         else:
             if self.arguments.start_date is not None:
-                y, m, d, *r = humanfriendly.parse_date(
+                # pylint: disable=unused-variable
+                year, month, day, *_ = humanfriendly.parse_date(
                     self.arguments.start_date)
-                self.start_date = date(y, m, d)
+                self.start_date = date(year, month, day)
+
             if self.arguments.end_date is not None:
-                y, m, d, *r = humanfriendly.parse_date(
+                year, month, day, *_ = humanfriendly.parse_date(
                     self.arguments.end_date)
-                self.end_date = date(y, m, d)
+                self.end_date = date(year, month, day)
 
     def get_calendar(self, name):
         try:
@@ -279,33 +283,34 @@ class TimeSheet:
         projects = etree.SubElement(root, "projects")
         entries = etree.SubElement(root, "entries")
         etree.SubElement(root, "summary",
-                         title=self.title,
+                         title=self.user_data["title"],
                          start=self.start_date.strftime(DATE_FORMAT),
                          end=(self.end_date - timedelta(days=1))
                          .strftime(DATE_FORMAT))
 
-        for used_project in sorted(used_projects):
-            p = used_projects[used_project]
-            xp = etree.SubElement(projects, "project",
-                                  title=p.project.title,
-                                  key=used_project)
-            if len(p.project.kvp) > 0:
-                props = etree.SubElement(xp, "properties")
-                for k, v in p.project.kvp.items():
-                    etree.SubElement(props, "p", key=k, value=v)
+        for project_key in sorted(used_projects):
+            used_project = used_projects[project_key]
+            project_element = etree.SubElement(projects, "project",
+                                  title=used_project.project.title,
+                                  key=project_key)
+            if used_project.project.kvp:
+                props = etree.SubElement(project_element, "properties")
+                for key, value in used_project.project.kvp.items():
+                    etree.SubElement(props, "p", key=key, value=value)
 
-            for e in sorted(p.entries, key=lambda x: x.start):
+            # pylint: disable=invalid-name
+            for e in sorted(used_project.entries, key=lambda x: x.start):
                 entry = etree.SubElement(
-                    entries, "entry", key=used_project,
+                    entries, "entry", key=project_key,
                     attrib={"from": e.start.strftime(TIME_FORMAT),
                             "to": e.end.strftime(TIME_FORMAT),
                             "minutes": str((e.end - e.start).seconds // 60),
                             "subject": e.summary})
                 if self.arguments.link \
                     or self.arguments.link_error \
-                        and p.project.pid == 0:
+                        and used_project.project.pid == 0:
                     entry.attrib["link"] = e.link
-                if len(e.description) > 0:
+                if e.description:
                     etree.SubElement(entry, "details").text = e.description
 
         # print(etree.tostring(root, encoding="unicode", pretty_print=True))
@@ -313,7 +318,7 @@ class TimeSheet:
 
     def read_calendar(self, timesheet_id, error_callback):
         used_projects = dict()
-        for e, key, entry in self.read_entries(timesheet_id):
+        for calendar_entry, key, entry in self.read_entries(timesheet_id):
             project = None
 
             if key is None:
@@ -335,18 +340,18 @@ class TimeSheet:
                 used_project = UsedProject(project)
                 used_projects[key] = used_project
 
-            used_project.entries.append(e)
+            used_project.entries.append(calendar_entry)
         return used_projects
 
     @staticmethod
     def transform_to_html(xslt_file, xml, file_name):
         transformed = etree.XSLT(etree.parse(xslt_file))(xml)
-        t = os.path.join(tempfile.gettempdir(), file_name)
-        with open(t, "w", encoding="utf-8") as f:
-            f.write(
+        temp_path = os.path.join(tempfile.gettempdir(), file_name)
+        with open(temp_path, "w", encoding="utf-8") as output_file:
+            output_file.write(
                 etree.tostring(transformed, encoding="unicode",
                                pretty_print=True))
-        return t
+        return temp_path
 
     def main(self):
         calendar_id = self.get_calendar(self.arguments.calendar)
@@ -359,7 +364,8 @@ class TimeSheet:
 
             html_file = TimeSheet.transform_to_html(
                 self.arguments.xslt, xml, "atb_%s_%s.html" % (
-                    self.user, datetime.now().strftime("%Y%d%m_%H%M")))
+                    self.user_data["user"],
+                    datetime.now().strftime("%Y%d%m_%H%M")))
             webbrowser.open(html_file, new=2)
 
         return 0
