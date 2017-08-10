@@ -20,6 +20,7 @@ import json
 import os.path
 import re
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import webbrowser
@@ -344,13 +345,31 @@ class TimeSheet:
 
     @staticmethod
     def transform_to_html(xslt_file, xml, file_name):
-        transformed = etree.XSLT(etree.parse(xslt_file))(xml)
         temp_path = os.path.join(tempfile.gettempdir(), file_name)
-        with open(temp_path, "w", encoding="utf-8") as output_file:
+        html_filename = temp_path + ".html"
+
+        xsltproc = where("xsltproc")
+
+        if xsltproc is not None:
+            try:
+                xml_filename = temp_path + ".xml"
+                with open(xml_filename, "w", encoding="utf-8") as xml_file:
+                    xml_file.write(
+                        etree.tostring(xml, encoding="unicode"))
+                subprocess.check_call([xsltproc, "-o", html_filename,
+                                       xslt_file,
+                                       xml_filename])
+                return html_filename
+            except subprocess.CalledProcessError:
+                print("An error occurred while calling \"%s\". "
+                      "See output above." % xsltproc)
+
+        transformed = etree.XSLT(etree.parse(xslt_file))(xml)
+        with open(html_filename, "w", encoding="utf-8") as output_file:
             output_file.write(
                 etree.tostring(transformed, encoding="unicode",
                                pretty_print=True))
-        return temp_path
+        return html_filename
 
     def main(self):
         calendar_id = self.get_calendar(self.arguments.calendar)
@@ -362,12 +381,27 @@ class TimeSheet:
                 self.read_calendar(calendar_id, error_cb))
 
             html_file = TimeSheet.transform_to_html(
-                self.arguments.xslt, xml, "atb_%s_%s.html" % (
+                self.arguments.xslt, xml, "atb_%s_%s" % (
                     self.user_data["user"],
                     datetime.now().strftime("%Y%d%m_%H%M")))
             webbrowser.open(html_file, new=2)
 
         return 0
+
+
+def where(file_name):
+    import platform
+    # inspired by http://nedbatchelder.com/code/utilities/wh.py
+    # see also: http://stackoverflow.com/questions/11210104/
+    path_sep = ":" if platform.system() == "Linux" else ";"
+    path_ext = [''] if platform.system() == "Linux" or '.' in file_name \
+        else os.environ["PATHEXT"].split(path_sep)
+    for d in os.environ["PATH"].split(path_sep):
+        for e in path_ext:
+            file_path = os.path.join(d, file_name + e)
+            if os.path.exists(file_path):
+                return file_path
+    return None
 
 
 if __name__ == '__main__':
