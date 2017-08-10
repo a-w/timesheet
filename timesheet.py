@@ -274,6 +274,9 @@ class TimeSheet:
                             help='Make description a hyperlink.')
         parser.add_argument('--link-error', action='store_true',
                             help="Make errors a hyperlink, don't open entry.")
+        parser.add_argument('--project', action='append',
+                            help="Select a specific project. This option may "
+                                 "be specified multiple times.")
         parser.add_argument('--xslt', default='CreateReport.xslt',
                             help='The style sheet to use.')
         return parser
@@ -331,6 +334,10 @@ class TimeSheet:
                     project = self.projects[key]
                 except KeyError:
                     error_callback(entry, "Unknown project: %s" % key)
+
+            if self.arguments.project is not None:
+                if key not in self.arguments.project:
+                    continue
 
             try:
                 used_project = used_projects[key]
