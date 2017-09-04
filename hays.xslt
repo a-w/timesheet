@@ -190,7 +190,11 @@ var fillData = function()
             };
         }
         // add text and minutes
-        sumdata[day].Text += ( sumdata[day].Text=="" ? ent.Text : ", " + ent.Text );
+        // Suppress duplicated entries, i.e. foo, foo -> foo
+        if (sumdata[day].Text != ent.Text)
+        {
+            sumdata[day].Text += ( sumdata[day].Text=="" ? ent.Text : ", " + ent.Text );
+        }
         sumdata[day].Duration += parseInt(ent.Duration);
         //
     }
