@@ -308,13 +308,14 @@ class TimeSheet:
                     attrib={"from": e.start.strftime(TIME_FORMAT),
                             "to": e.end.strftime(TIME_FORMAT),
                             "minutes": str((e.end - e.start).seconds // 60),
-                            "subject": e.summary})
+                            "subject": e.summary.strip()})
                 if self.arguments.link \
                     or self.arguments.link_error \
                         and used_project.project.pid == 0:
                     entry.attrib["link"] = e.link
                 if e.description:
-                    etree.SubElement(entry, "details").text = e.description
+                    etree.SubElement(entry, "details").text = \
+                        e.description.strip()
 
         # print(etree.tostring(root, encoding="unicode", pretty_print=True))
         return root
