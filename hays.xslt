@@ -185,15 +185,15 @@ var fillData = function()
         {
             sumdata[day] = 
             {
-                Text: "",
+                Text: [],
                 Duration: 0
             };
         }
         // add text and minutes
         // Suppress duplicated entries, i.e. foo, foo -> foo
-        if (sumdata[day].Text != ent.Text)
+        if ($.inArray(ent.Text, sumdata[day].Text) === -1)
         {
-            sumdata[day].Text += ( sumdata[day].Text=="" ? ent.Text : ", " + ent.Text );
+            sumdata[day].Text.push(ent.Text);
         }
         sumdata[day].Duration += parseInt(ent.Duration);
         //
@@ -204,7 +204,7 @@ var fillData = function()
         var ent = sumdata[day];
         var row = tbl.append("<tr/>");
         var hours = ent.Duration / 60;
-        appendInputCell(row, day, ent.Text, formatHours(hours) );
+        appendInputCell(row, day, ent.Text.join(", "), formatHours(hours));
     }
     
     // sum
