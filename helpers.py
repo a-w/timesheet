@@ -57,9 +57,6 @@ def init(argv, name, version, doc, filename, scope=None, parents=[],
     A tuple of (service, flags), where service is the service object and flags
     is the parsed command-line flags.
   """
-    if scope is None:
-        scope = 'https://www.googleapis.com/auth/' + name
-
     # Parser command-line arguments.
     parent_parsers = [tools.argparser]
     parent_parsers.extend(parents)
@@ -75,6 +72,9 @@ def init(argv, name, version, doc, filename, scope=None, parents=[],
     # Console <http://code.google.com/apis/console>.
     client_secrets = os.path.join(os.path.dirname(filename),
                                   'client_secrets.json')
+
+    if scope is None:
+        scope = 'https://www.googleapis.com/auth/' + name
 
     # Set up a Flow object to be used if we need to authenticate.
     flow = client.flow_from_clientsecrets(client_secrets,
