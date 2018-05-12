@@ -307,7 +307,7 @@ class TimeSheet:
                     entries, "entry", key=project_key,
                     attrib={"from": e.start.strftime(TIME_FORMAT),
                             "to": e.end.strftime(TIME_FORMAT),
-                            "minutes": str((e.end - e.start).seconds // 60),
+                            "minutes": str(((e.end - e.start) / 60).seconds),
                             "subject": e.summary.strip()})
                 if self.arguments.link \
                     or self.arguments.link_error \
