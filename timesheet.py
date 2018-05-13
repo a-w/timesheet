@@ -18,81 +18,33 @@
 
 import json
 import os.path
-import re
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import webbrowser
-from collections import defaultdict
 from datetime import datetime, date, timedelta
 
 import humanfriendly
+import pytz
 from lxml import etree
-from oauth2client import client
 
 import matcher
 from helpers import init
 
 __author__ = "Adrian Weiler <timesheet-author.SPAM@aweiler.com>"
 
-DATE_TIME_RE = re.compile(
-    '(?P<Y>\\d\\d\\d\\d)-'
-    '(?P<m>1[0-2]|0[1-9]|[1-9])-'
-    '(?P<d>3[0-1]|[1-2]\\d|0[1-9])T'
-    '(?P<H>2[0-3]|[0-1]\\d|\\d):'
-    '(?P<M>[0-5]\\d|\\d):'
-    '(?P<S>6[0-1]|[0-5]\\d|\\d)'
-    '(?P<z>[+-]\\d\\d:[0-5]\\d)')
-
-DATE_RE = re.compile(
-    '(?P<Y>\\d\\d\\d\\d)-'
-    '(?P<m>1[0-2]|0[1-9]|[1-9])-'
-    '(?P<d>3[0-1]|[1-2]\\d|0[1-9])')
-
 DATE_FORMAT = "%d.%m.%Y"
 TIME_FORMAT = "%d.%m.%Y %H:%M:%S"
 
 
 def _print_msg(entry, msg):
-    print("%s in entry at %s" % (msg, entry["start"]), end='\n')
+    print("%s in entry at %s" % (msg, entry.start), end='\n')
 
 
 def _open_browser(entry, msg):
     _print_msg(entry, msg)
-    webbrowser.open(entry["htmlLink"], new=2)
-
-
-class CalendarEntry:
-    # pylint: disable=too-few-public-methods
-
-    def __init__(self, entry_id, start, end, summary, description, location,
-                 link):
-        # pylint: disable=too-many-arguments
-
-        def to_datetime(entry):
-            try:
-                inp = entry["dateTime"]
-                found = DATE_TIME_RE.fullmatch(inp)
-            except KeyError:
-                inp = entry["date"]
-                found = DATE_RE.fullmatch(inp)
-
-            if not found:
-                raise ValueError("time data %r does not match expected format"
-                                 % inp)
-
-            _ = defaultdict(int, found.groupdict())
-            return datetime(int(_["Y"]), int(_["m"]), int(_["d"]),
-                            int(_["H"]), int(_["M"]))
-
-        self.entry_id = entry_id
-        self.start = to_datetime(start)
-        self.end = to_datetime(end)
-        self.summary = summary
-        self.description = description
-        self.location = location
-        self.link = link
+    webbrowser.open(entry.link, new=2)
 
 
 class Project:
@@ -142,15 +94,16 @@ class CalendarDb:
 
 class TimeSheet:
     def __init__(self, argv):
-        # Authenticate and construct service.
-        self.service, self.arguments = init(
-            argv, 'calendar', 'v3', __doc__, __file__,
-            parents=[self._create_argument_parser()],
-            scope='https://www.googleapis.com/auth/calendar.readonly')
-
         # user info
         with open("user.json", 'r', encoding='utf-8') as _:
             self.user_data = json.load(_)
+
+        self.tz = pytz.timezone(self.user_data.get('tz','utc'))
+
+        # Authenticate and construct provider.
+        self.provider, self.arguments = init(
+            argv, self.tz, __doc__,
+            parents=[self._create_argument_parser()])
 
         # projects database
         self.database = CalendarDb(self.arguments.database)
@@ -193,67 +146,23 @@ class TimeSheet:
                 self.end_date = date(year, month, day)
 
     def get_calendar(self, name):
-        try:
-            page_token = None
-            while True:
-                calendar_list = self.service.calendarList().list(
-                    pageToken=page_token).execute()
-                for calendar_list_entry in calendar_list['items']:
-                    if calendar_list_entry['summary'] == name:
-                        return calendar_list_entry['id']
-
-                page_token = calendar_list.get('nextPageToken')
-                if not page_token:
-                    break
-
-        except client.AccessTokenRefreshError:
-            print('The credentials have been revoked or expired, please re-run'
-                  'the application to re-authorize.')
-
-        print('Calendar "%s" not found' % name)
-        return None
+        return self.provider.get_calendar(name)
 
     def read_entries(self, timesheet_id):
+        def _parse(text):
+            summary = None
+            key = None
+            for match in matcher.MATCHERS:
+                summary, key = match(text)
+                if key is not None:
+                    break
+            return summary, key
 
-        page_token = None
-        while True:
-            event_list = self.service.events().list(
-                calendarId=timesheet_id,
-                timeMin=self.start_date.isoformat() + "T00:00:00Z",
-                timeMax=self.end_date.isoformat() + "T00:00:00Z",
-                pageToken=page_token).execute()
-
-            for entry in event_list['items']:
-                def opt_arg(k):
-                    try:
-                        return entry[k]
-                    except KeyError:
-                        return ""
-
-                if entry['status'] != 'confirmed':
-                    print(
-                        "WARNING: Ignoring entry  %s with status %s" %
-                        (entry,
-                         entry['status']), file=sys.stderr, end='\n')
-                    continue
-
-                text = entry["summary"]
-                for match in matcher.MATCHERS:
-                    summary, key = match(text)
-                    if key is not None:
-                        break
-
-                yield CalendarEntry(entry["iCalUID"],
-                                    entry["start"],
-                                    entry["end"],
-                                    summary,
-                                    opt_arg("description"),
-                                    opt_arg("location"),
-                                    entry["htmlLink"]), key, entry
-
-            page_token = event_list.get('nextPageToken')
-            if not page_token:
-                break
+        return self.provider.read_entries(
+            timesheet_id,
+            self.start_date,
+            self.end_date,
+            _parse)
 
     @staticmethod
     def _create_argument_parser():
@@ -303,10 +212,12 @@ class TimeSheet:
 
             # pylint: disable=invalid-name
             for e in sorted(used_project.entries, key=lambda x: x.start):
+                start = e.start.astimezone(self.tz)
+                end = e.end.astimezone(self.tz)
                 entry = etree.SubElement(
                     entries, "entry", key=project_key,
-                    attrib={"from": e.start.strftime(TIME_FORMAT),
-                            "to": e.end.strftime(TIME_FORMAT),
+                    attrib={"from": start.strftime(TIME_FORMAT),
+                            "to": end.strftime(TIME_FORMAT),
                             "minutes": str(((e.end - e.start) / 60).seconds),
                             "subject": e.summary.strip()})
                 if self.arguments.link \
@@ -322,13 +233,13 @@ class TimeSheet:
 
     def read_calendar(self, timesheet_id, error_callback):
         used_projects = dict()
-        for calendar_entry, key, entry in self.read_entries(timesheet_id):
+        for entry, key in self.read_entries(timesheet_id):
             project = None
 
             if key is None:
                 error_callback(entry,
                                "Malformed timesheet entry: %s" %
-                               entry['summary'])
+                               entry.summary)
                 key = "unknown"
             else:
                 try:
@@ -348,7 +259,7 @@ class TimeSheet:
                 used_project = UsedProject(project)
                 used_projects[key] = used_project
 
-            used_project.entries.append(calendar_entry)
+            used_project.entries.append(entry)
         return used_projects
 
     @staticmethod

@@ -1,0 +1,5 @@
+{
+  "name": "calendar",
+  "version": "v3",
+  "scope" : "https://www.googleapis.com/auth/calendar.readonly"
+}

@@ -1,6 +1,6 @@
 /projects.sqlite
-/calendar_credentials.dat
-/client_secrets.json
+*_credentials.dat
+*_secrets.json
 /user.json
 /.idea
-/__pycache__
+__pycache__
