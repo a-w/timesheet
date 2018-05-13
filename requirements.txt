@@ -1,4 +1,6 @@
+caldav
 google-api-python-client
+icalendar
 humanfriendly
 lxml
 oauth2client

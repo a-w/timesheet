@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Time sheet evaluator that uses the Google Calendar API."""
+"""Time sheet evaluator that uses the Google Calendar API or the CalDAV API."""
 
 import json
 import os.path
