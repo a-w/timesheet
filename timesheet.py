@@ -75,12 +75,13 @@ class CalendarDb:
         cursor = self.conn.cursor()
         project = None
         # noinspection SqlResolve
-        projects = cursor.execute("SELECT p.Id, p.ProjectKey, p.ProjectTitle, "
-                             "kvp.Key, kvp.value "
-                             "FROM Projects p "
-                             "LEFT JOIN ProjectKeyValuePairs kvp "
-                             "ON p.Id = kvp.ProjectID "
-                             "ORDER BY p.ProjectKey")
+        projects = cursor.execute(
+            "SELECT p.Id, p.ProjectKey, p.ProjectTitle, "
+            "kvp.Key, kvp.value "
+            "FROM Projects p "
+            "LEFT JOIN ProjectKeyValuePairs kvp "
+            "ON p.Id = kvp.ProjectID "
+            "ORDER BY p.ProjectKey")
         for pid, project_key, title, kvk, kvv in projects:
             if project is None or project.pid != pid:
                 if project is not None:
@@ -98,7 +99,7 @@ class TimeSheet:
         with open("user.json", 'r', encoding='utf-8') as _:
             self.user_data = json.load(_)
 
-        self.tz = pytz.timezone(self.user_data.get('tz','utc'))
+        self.tz = pytz.timezone(self.user_data.get('tz', 'utc'))
 
         # Authenticate and construct provider.
         self.provider, self.arguments = init(
@@ -202,9 +203,10 @@ class TimeSheet:
 
         for project_key in sorted(used_projects):
             used_project = used_projects[project_key]
-            project_element = etree.SubElement(projects, "project",
-                                  title=used_project.project.title,
-                                  key=project_key)
+            project_element = etree.SubElement(
+                projects, "project",
+                title=used_project.project.title,
+                key=project_key)
             if used_project.project.kvp:
                 props = etree.SubElement(project_element, "properties")
                 for key, value in used_project.project.kvp.items():
