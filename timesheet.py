@@ -18,7 +18,6 @@
 
 import json
 import os.path
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -50,11 +49,13 @@ def _open_browser(entry, msg):
 class Project:
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, pid, key, title):
-        self.pid = pid
-        self.key = key
+    def __init__(self, title, kvp=None):
         self.title = title
-        self.kvp = dict()
+        self.kvp = kvp
+
+    @property
+    def real_project(self):
+        return self.kvp is not None
 
 
 class UsedProject:
@@ -63,34 +64,6 @@ class UsedProject:
     def __init__(self, project):
         self.project = project
         self.entries = []
-
-
-class CalendarDb:
-    # pylint: disable=too-few-public-methods
-
-    def __init__(self, name):
-        self.conn = sqlite3.connect(name)
-
-    def get_projects(self):
-        cursor = self.conn.cursor()
-        project = None
-        # noinspection SqlResolve
-        projects = cursor.execute(
-            "SELECT p.Id, p.ProjectKey, p.ProjectTitle, "
-            "kvp.Key, kvp.value "
-            "FROM Projects p "
-            "LEFT JOIN ProjectKeyValuePairs kvp "
-            "ON p.Id = kvp.ProjectID "
-            "ORDER BY p.ProjectKey")
-        for pid, project_key, title, kvk, kvv in projects:
-            if project is None or project.pid != pid:
-                if project is not None:
-                    yield project
-                project = Project(pid, project_key, title)
-            if kvk is not None:
-                project.kvp[kvk] = kvv
-        if project is not None:
-            yield project
 
 
 class TimeSheet:
@@ -107,15 +80,18 @@ class TimeSheet:
             parents=[self._create_argument_parser()])
 
         # projects database
-        self.database = CalendarDb(self.arguments.database)
-        self.projects = dict()
-        for project in self.database.get_projects():
-            self.projects[project.key] = project
+        def object_decoder(obj: dict):
+            if 'title' in obj:
+                return Project(obj['title'], obj.get('attributes', dict()))
+            return obj
+
+        with open("projects.json", 'r', encoding='utf-8') as _:
+            self.projects = json.load(_, object_hook=object_decoder)
 
         # start and end date
         if self.arguments.start_date is None and \
-                self.arguments.end_date is None and \
-                self.arguments.period is None:
+            self.arguments.end_date is None and \
+            self.arguments.period is None:
             self.arguments.period = "last-month"
 
         self.start_date = date.today().replace(day=1)
@@ -131,7 +107,7 @@ class TimeSheet:
             else:
                 raise ValueError("Unknown period: %s" % self.arguments.period)
             if self.arguments.start_date is not None or \
-                    self.arguments.end_date is not None:
+                self.arguments.end_date is not None:
                 raise ValueError(
                     "You cannot combine --period and explicit date")
         else:
@@ -224,7 +200,7 @@ class TimeSheet:
                             "subject": e.summary.strip()})
                 if self.arguments.link \
                     or self.arguments.link_error \
-                        and used_project.project.pid == 0:
+                    and not used_project.project.real_project:
                     entry.attrib["link"] = e.link
                 if e.description:
                     etree.SubElement(entry, "details").text = \
@@ -257,7 +233,7 @@ class TimeSheet:
                 used_project = used_projects[key]
             except KeyError:
                 if project is None:
-                    project = Project(0, key, "Unknown project")
+                    project = Project("Unknown project")
                 used_project = UsedProject(project)
                 used_projects[key] = used_project
 
@@ -297,7 +273,7 @@ class TimeSheet:
         if calendar_id is not None:
             error_cb = _print_msg if self.arguments.link \
                                      or self.arguments.link_error \
-                                     else _open_browser
+                else _open_browser
             xml = self.export_as_xml(
                 self.read_calendar(calendar_id, error_cb))
 
