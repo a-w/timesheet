@@ -44,7 +44,7 @@ textarea#ETBS_
     white-space: nowrap;
     overflow:    scroll;
     overflow-y:  scroll;
-    overflow-x:  scroll;    
+    overflow-x:  scroll;
 }
 div#ETBS
 {
@@ -155,7 +155,7 @@ var fillInfo = function() {
 
     var date = $('#date_val');
     date.text(s[1] + " " + s[2]);
-    
+
     var greeting = $('#greeting');
     greeting.text(greeting.text().replace('$WHO',Data.Attributes["AP"]));
 };
@@ -179,7 +179,7 @@ var fillData = function()
         // create a new entry if not exists
         if (sumdata[day] === undefined)
         {
-            sumdata[day] = 
+            sumdata[day] =
             {
                 Text: [],
                 Duration: 0
@@ -194,7 +194,7 @@ var fillData = function()
         sumdata[day].Duration += parseInt(ent.Duration);
         //
     }
-    
+
     // iterate summed data
     for (var day in sumdata) {
         var ent = sumdata[day];
@@ -202,10 +202,10 @@ var fillData = function()
         var hours = ent.Duration / 60;
         appendInputCell(row, day, ent.Text.join(", "), formatHours(hours));
     }
-    
+
     // sum
     calcSums();
-    
+
     // register for resum on change
     $('input.entry_hours').change(calcSums);
 };
@@ -229,7 +229,7 @@ var calcSums = function()
         $(ent).val(formatHours(fv));
         sumHours += fv;
     }
-    
+
     // update total hours
     $('#h_total').text(formatHours(sumHours) + " h");
 };
@@ -254,19 +254,19 @@ $(document).ready(function() {
 Date.prototype.getWeek = function () {
     // Create a copy of this date object
     var target  = new Date(this.valueOf());
-    
+
     // ISO week date weeks start on monday
     // so correct the day number
     var dayNr   = (this.getDay() + 6) % 7;
-    
+
     // ISO 8601 states that week 1 is the week
     // with the first thursday of that year.
     // Set the target date to the thursday in the target week
     target.setDate(target.getDate() - dayNr + 3);
-    
+
     // Store the millisecond value of the target date
     var firstThursday = target.valueOf();
-    
+
     // Set the target to the first thursday of the year
     // First set the target to january first
     target.setMonth(0, 1);
@@ -274,8 +274,8 @@ Date.prototype.getWeek = function () {
     if (target.getDay() != 4) {
     target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
     }
-    
-    // The weeknumber is the number of weeks between the 
+
+    // The weeknumber is the number of weeks between the
     // first thursday of the year and the thursday in the target week
     return 1 + Math.ceil((firstThursday - target) / 604800000); // 604800000 = 7 * 24 * 3600 * 1000
 };
@@ -301,7 +301,7 @@ $(document).dblclick(function() {
         var from = entry['From'];
         var d = from.split(' ');
         var date = d[0].split('.');
-        // take the week day 
+        // take the week day
         var wd = (new Date(parseInt(date[2]), parseInt(date[1]) - 1, parseInt(date[0])));
         var wwd = wd.getDay() + 1;
         if (wwd >= ldt)
@@ -316,9 +316,9 @@ $(document).dblclick(function() {
         var fromday = date[2] + '-' + date[1] + '-' + date[0];
         // hours
         var hh = (parseInt(entry['Duration']) / 60);
-        HOURS_PER_DAY[wd.getDay()] += hh;       
+        HOURS_PER_DAY[wd.getDay()] += hh;
         var hours = '"' + ("" + hh).replace(".",",") + '"';
-        // entry        
+        // entry
         var txt = entry['Text'];
         var index = txt.indexOf(':');
         var cat = '"' + txt.substr(0, index) + '"';
@@ -326,17 +326,17 @@ $(document).dblclick(function() {
         //
         if (HOURS_PER_CAT[cat] == undefined)
             HOURS_PER_CAT[cat] = 0;
-        HOURS_PER_CAT[cat] += hh;        
+        HOURS_PER_CAT[cat] += hh;
         //
     }
-    
+
     // now dump the days
     commands += "\n\nHours by day \n";
     for(var i=0;i&lt;7;++i)
     {
         commands += weekday[i] + "  " + HOURS_PER_DAY[i] + "\n";
     }
-    
+
     // now dump the categories
     commands += "\n\nHours by category \n";
     for(var i in HOURS_PER_CAT)
@@ -345,7 +345,7 @@ $(document).dblclick(function() {
     }
 
     $('#ETBS').toggle();
-    var etbs = $('#ETBS_'); 
+    var etbs = $('#ETBS_');
     etbs.text(commands);
     etbs.select();
 });
@@ -364,11 +364,11 @@ $(document).dblclick(function() {
 
 <div id="content">
 <div id="title" style="font-weight: bold">
-<h1>Projektbericht</h1>
+<h1>Project Report</h1>
 <table cellspacing="0" cellpadding="3" id="titletable">
 <tbody>
-<tr><td>Monat</td><td id="date_val"></td></tr>
-<tr><td>Projektnummer</td><td><xsl:value-of select="/timesheet/projects/project/properties/p[@key='ORDER']/@value"/></td></tr>
+<tr><td>Month</td><td id="date_val"></td></tr>
+<tr><td>Project</td><td><xsl:value-of select="/timesheet/projects/project/properties/p[@key='ORDER']/@value"/></td></tr>
 <tr><td>Name</td><td><xsl:value-of select="/timesheet/projects/project/properties/p[@key='NAME']/@value"/>
 </td></tr>
 </tbody>
@@ -379,7 +379,7 @@ $(document).dblclick(function() {
 <div id="table">
 <table cellspacing="0" cellpadding="3" id="data">
 <thead>
-<tr><td style="width: 1.8cm;">Datum</td><td style="width: 14.5cm;">Tätigkeit</td><td align="right">Stunden</td></tr>
+<tr><td style="width: 1.8cm;">Date</td><td style="width: 14.5cm;">Activities</td><td align="right">Hours</td></tr>
 </thead>
 <tbody/>
 <tfoot>
@@ -387,9 +387,9 @@ $(document).dblclick(function() {
 </tfoot>
 </table>
 <p/>
-Bestätigt / Datum:<p/>&#160;<p/>
+Confirmed / Date:<p/>&#160;<p/>
 <span id="greeting">
-Unterschrift Projektleiter ($WHO):
+Signature Project Manager ($WHO):
 </span>
 </div>
 </div>
@@ -403,7 +403,7 @@ Unterschrift Projektleiter ($WHO):
 	<xsl:template match="p" mode="attributes">
 		<xsl:value-of select="@key"/>: "<xsl:value-of select="@value"/>",
 	</xsl:template>
-	
+
     <!-- default handler for elements containing text -->
     <xsl:template match="text()"/>
 
