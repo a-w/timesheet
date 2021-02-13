@@ -72,6 +72,9 @@ def init(argv, tz, doc, parents=()):
     with open(provider_config, 'r', encoding='utf-8') as _:
         config = json.load(_)
 
+    # Pass config dir in config
+    config["config_dir"] = provider_config_dir
+
     # Pass timezone info from user config
     config["tz"] = tz
 
