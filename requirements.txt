@@ -5,3 +5,4 @@ humanfriendly
 lxml
 oauth2client
 pytz
+requests

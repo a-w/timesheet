@@ -18,9 +18,9 @@ Consolidates a lot of code commonly repeated in sample applications.
 """
 
 import argparse
-from importlib import import_module
 import json
 import os
+from importlib import import_module
 
 from oauth2client import tools
 
@@ -64,10 +64,11 @@ def init(argv, tz, doc, parents=()):
         parents=parent_parsers)
     flags = parser.parse_args(argv[1:])
 
-    provider_config = os.path.join(os.path.dirname(__file__),
-                                   'provider',
-                                   flags.provider,
-                                   'calendar.json')
+    provider_config_dir = os.path.join(os.path.dirname(__file__),
+                                       'provider',
+                                       flags.provider)
+
+    provider_config = os.path.join(provider_config_dir, 'calendar.json')
 
     with open(provider_config, 'r', encoding='utf-8') as _:
         config = json.load(_)
