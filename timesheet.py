@@ -197,7 +197,7 @@ class TimeSheet:
                     attrib={"from": start.strftime(TIME_FORMAT),
                             "to": end.strftime(TIME_FORMAT),
                             "minutes": str(((e.end - e.start) / 60).seconds),
-                            "subject": e.summary.strip()})
+                            "subject": e.summary.strip().replace('"', '&quot;')})
                 if self.arguments.link \
                     or self.arguments.link_error \
                     and not used_project.project.real_project:
