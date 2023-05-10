@@ -35,18 +35,34 @@ class _Session:
         self._calendar = calendar
         self._token = None
         self._token_file = os.path.join(config_dir, "token.json")
+        self._user_info = None
         try:
             with open(self._token_file, 'r', encoding='utf-8') as _:
                 self._token = json.load(_)
         except (IOError, json.decoder.JSONDecodeError):
-            result = self.post('developer/sign-in', self._calendar['api'])
-            self._token = result['token']
-            if self._calendar.get('persist_token', True):
-                with open(self._token_file, 'w', encoding='utf-8') as _:
-                    json.dump(self._token, _)
+            self._token = None
+
+    def renew_token(self):
+        result = self.post('developer/sign-in', self._calendar['api'])
+        self._token = result['token']
+        if self._calendar.get('persist_token', True):
+            with open(self._token_file, 'w', encoding='utf-8') as _:
+                json.dump(self._token, _)
 
     def __enter__(self):
+        try:
+            self.get_user_info()
+        except requests.HTTPError as e:
+            print('Requesting a new token...')
+            self.renew_token()
+            # Try again
+            self.get_user_info()
+        print (f'Authenticated as {self._user_info["name"]}')
         return self
+
+    def get_user_info(self):
+        me = self.get('me')
+        self._user_info = me['data']
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # If we already had an HTTP error, don't attempt anything anymore
